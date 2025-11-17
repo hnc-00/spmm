@@ -25,6 +25,8 @@ class SPMM(pl.LightningModule):
 
         bert_config = BertConfig.from_json_file(config['bert_config_text'])
         self.text_encoder = BertForMaskedLM(config=bert_config)
+        self.text_decoder = BertForMaskedLM(config=bert_config)
+        self.text_decoder.load_state_dict(self.text_encoder.state_dict())
         text_width = self.text_encoder.config.hidden_size
         property_width = text_width
 
@@ -47,15 +49,19 @@ class SPMM(pl.LightningModule):
         self.property_encoder_m = BertForMaskedLM(config=bert_config2).bert
         self.property_proj_m = nn.Linear(property_width, embed_dim)
         self.text_encoder_m = BertForMaskedLM(config=bert_config)
+        self.text_decoder_m = BertForMaskedLM(config=bert_config)
+        self.text_decoder_m.load_state_dict(self.text_decoder.state_dict())
         self.text_proj_m = nn.Linear(text_width, embed_dim)
         for p in self.property_encoder_m.parameters():  p.requires_grad = False
         for p in self.property_proj_m.parameters():     p.requires_grad = False
         for p in self.text_encoder_m.parameters():      p.requires_grad = False
+        for p in self.text_decoder_m.parameters():      p.requires_grad = False
         for p in self.text_proj_m.parameters():         p.requires_grad = False
 
         self.model_pairs = [[self.property_encoder, self.property_encoder_m],
                             [self.property_proj, self.property_proj_m],
                             [self.text_encoder, self.text_encoder_m],
+                            [self.text_decoder, self.text_decoder_m],
                             [self.text_proj, self.text_proj_m],
                             ]
 
@@ -212,7 +218,7 @@ class SPMM(pl.LightningModule):
         labels = input_ids.clone()[:, 1:]
 
         with torch.no_grad():
-            logits_m = self.text_encoder_m(input_ids,
+            logits_m = self.text_decoder_m(input_ids,
                                            attention_mask=text_attention_mask,
                                            encoder_hidden_states=prop_embeds_m,
                                            encoder_attention_mask=prop_atts,
@@ -221,7 +227,7 @@ class SPMM(pl.LightningModule):
                                            return_logits=True,
                                            )[:, :-1, :]
 
-        mlm_output = self.text_encoder(input_ids,
+        mlm_output = self.text_decoder(input_ids,
                                        attention_mask=text_attention_mask,
                                        encoder_hidden_states=prop_embeds,
                                        encoder_attention_mask=prop_atts,
@@ -240,7 +246,7 @@ class SPMM(pl.LightningModule):
         # ================= MPM ================= #
         target = property_original.clone()
         prop_embeds_causal = self.property_encoder(inputs_embeds=properties, is_decoder=True, return_dict=True).last_hidden_state
-        prop_output = self.text_encoder.bert(encoder_embeds=prop_embeds_causal,
+        prop_output = self.text_decoder.bert(encoder_embeds=prop_embeds_causal,
                                              attention_mask=prop_atts,
                                              encoder_hidden_states=text_embeds,
                                              encoder_attention_mask=text_attention_mask,
