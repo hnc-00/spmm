@@ -26,7 +26,7 @@ def BinarySearch(a, x):
 def generate(model, image_embeds, text, stochastic=True, prop_att_mask=None, k=None):
     text_atts = torch.where(text == 0, 0, 1)
     if prop_att_mask is None:   prop_att_mask = torch.ones(image_embeds.size()[:-1], dtype=torch.long).to(image_embeds.device)
-    token_output = model.text_encoder(text,
+    token_output = model.text_decoder(text,
                                       attention_mask=text_atts,
                                       encoder_hidden_states=image_embeds,
                                       encoder_attention_mask=prop_att_mask,

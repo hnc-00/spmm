@@ -14,7 +14,7 @@ from sklearn.metrics import r2_score
 def generate(model, prop_input, text_embeds, text_atts):
     prop_embeds = model.property_encoder(inputs_embeds=prop_input, return_dict=True).last_hidden_state
     prob_atts = torch.ones(prop_input.size()[:-1], dtype=torch.long).to(prop_input.device)
-    token_output = model.text_encoder.bert(encoder_embeds=prop_embeds,
+    token_output = model.text_decoder.bert(encoder_embeds=prop_embeds,
                                            attention_mask=prob_atts,
                                            encoder_hidden_states=text_embeds,
                                            encoder_attention_mask=text_atts,

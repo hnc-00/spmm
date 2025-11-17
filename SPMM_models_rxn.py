@@ -10,6 +10,8 @@ class SPMM_rxn(nn.Module):
         super().__init__()
 
         self.text_encoder = BertForMaskedLM(config=BertConfig.from_json_file(config['bert_config_text']))
+        self.text_decoder = BertForMaskedLM(config=BertConfig.from_json_file(config['bert_config_text']))
+        self.text_decoder.load_state_dict(self.text_encoder.state_dict())
         self.text_encoder2 = BertForMaskedLM(config=BertConfig.from_json_file(config['bert_config_smiles']))
 
         # copy weights of checkpoint's SMILES encoder to text_encoder2
@@ -32,7 +34,7 @@ class SPMM_rxn(nn.Module):
         input_ids = product_input_ids.clone()
         labels = input_ids.clone()[:, 1:]
         text_embeds = self.text_encoder2.bert(text_input_ids, attention_mask=text_attention_mask, return_dict=True, mode='text').last_hidden_state
-        mlm_output = self.text_encoder(input_ids,
+        mlm_output = self.text_decoder(input_ids,
                                        attention_mask=product_attention_mask,
                                        encoder_hidden_states=text_embeds,
                                        encoder_attention_mask=text_attention_mask,
@@ -48,7 +50,7 @@ class SPMM_rxn(nn.Module):
     def generate(self, text_embeds, text_mask, product_input, stochastic=False, k=None):
         product_atts = torch.where(product_input == 0, 0, 1)
 
-        token_output = self.text_encoder(product_input,
+        token_output = self.text_decoder(product_input,
                                          attention_mask=product_atts,
                                          encoder_hidden_states=text_embeds,
                                          encoder_attention_mask=text_mask,
